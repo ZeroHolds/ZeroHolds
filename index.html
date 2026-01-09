@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Crypto Transfer | Multi-Recipient Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.12/dist/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<style>
+/* Modern CSS with animations */
+:root {
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --usdt: #26a17b;
+  --busd: #f0b90b;
+  --bnb: #f3ba2f;
+  --dark: #0f172a;
+  --card: #1e293b;
+  --light: #f8fafc;
+  --border: #334155;
+  --gray: #94a3b8;
+  --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@keyframes successGlow {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: var(--light);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  line-height: 1.6;
+}
+.container {
+  width: 100%;
+  max-width: 600px;
+  animation: fadeIn 0.8s ease-out;
+}
+.card {
+  background: var(--card);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.5rem;
+  animation: pulse 2s infinite;
+}
+.logo-text {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), var(--success));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.tagline {
+  color: var(--gray);
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  padding: 12px 20px;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 1rem 0 1.5rem;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  animation: slideIn 0.6s ease-out;
+}
+.security-badge::before {
+  content: "🔒";
+  font-size: 1rem;
+}
+/* Crypto Cards */
+.crypto-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 2rem;
+}
+.crypto-card {
+  padding: 1rem;
+  border-radius: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+}
+.crypto-card:hover {
+  transform: translateY(-4px);
+}
+.crypto-card.active {
+  border-color: currentColor;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+.crypto-card[data-crypto="USDT"] { color: var(--usdt); }
+.crypto-card[data-crypto="BUSD"] { color: var(--busd); }
+.crypto-card[data-crypto="BNB"] { color: var(--bnb); }
+.crypto-icon {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+.crypto-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.crypto-network {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+.btn {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+.btn:focus:not(:active)::after {
+  animation: ripple 1s ease-out;
+}
+@keyframes ripple {
+  0% { transform: scale(0, 0); opacity: 0.5; }
+  20% { transform: scale(25, 25); opacity: 0.3; }
+  100% { transform: scale(40, 40); opacity: 0; }
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(99, 102, 241, 0.3);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.btn-connect {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  margin-bottom: 1.5rem;
+}
+.btn-connect:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
+.btn-success {
+  animation: successGlow 2s infinite;
+}
+.form-group {
+  margin-bottom: 1.5rem;
+  animation: fadeIn 0.6s ease-out;
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+}
+.input-icon {
+  color: var(--primary);
+}
+input, select, textarea {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--light);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.3s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  transform: translateY(-1px);
+}
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.input-hint {
+  font-size: 0.8rem;
+  color: var(--gray);
+  margin-top: 0.5rem;
+  opacity: 0;
+  animation: fadeIn 0.5s ease-out 0.3s forwards;
+}
+.recipients-container {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+}
+.recipient-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 1rem;
+  animation: slideIn 0.4s ease-out;
+}
+.recipient-item:last-child {
+  margin-bottom: 0;
+}
+.recipient-number {
+  background: var(--primary);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.recipient-input {
+  flex: 1;
+}
+.add-recipient-btn {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+  border: 1px dashed var(--primary);
+  padding: 0.75rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 1rem;
+}
+.add-recipient-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  transform: translateY(-1px);
+}
+.amount-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.amount-input {
+  flex: 1;
+}
+.max-btn {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+  padding: 1rem 1.5rem;
+  border-radius: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.max-btn:hover {
+  background: rgba(59, 130, 246, 0.25);
+  transform: translateY(-1px);
+}
+.fee-breakdown {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.4), rgba(30, 41, 59, 0.4));
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
+  animation: fadeIn 0.6s ease-out;
+}
+.fee-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1rem;
+}
+.fee-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  animation: slideIn 0.4s ease-out;
+}
+.fee-row:last-child {
+  border-bottom: none;
+  font-weight: 700;
+  color: var(--light);
+  font-size: 1.1rem;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+.fee-label {
+  color: var(--gray);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fee-value {
+  color: var(--light);
+  font-weight: 600;
+}
+.message {
+  padding: 1.25rem;
+  border-radius: 16px;
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+  display: none;
+  animation: fadeIn 0.5s ease-out;
+}
+.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
+  word-break: break-all;
+}
+.wallet-status {
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  display: none;
+}
+.qr-container {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 16px;
+  display: none;
+  animation: fadeIn 0.6s ease-out;
+}
+.qr-title {
+  color: var(--gray);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.copy-btn {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-left: 0.5rem;
+}
+.copy-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  transform: translateY(-1px);
+}
+.footer {
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.8rem;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 640px) {
+  .card {
+    padding: 1.5rem;
+  }
+  
+  .crypto-cards {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .amount-container {
+    flex-direction: column;
+  }
+  
+  .max-btn {
+    width: 100%;
+  }
+  
+  .logo-text {
+    font-size: 1.5rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">🌍</div>
+        <div class="logo-text">GlobalCrypto Transfer</div>
+      </div>
+      <p class="tagline">Send cryptocurrency to multiple recipients worldwide</p>
+      <div class="security-badge">Non-custodial • We never hold your funds</div>
+    </div>
+    
+    <div class="crypto-cards">
+      <div class="crypto-card active" data-crypto="USDT">
+        <div class="crypto-icon">💵</div>
+        <div class="crypto-name">USDT</div>
+        <div class="crypto-network">BEP20</div>
+      </div>
+      <div class="crypto-card" data-crypto="BUSD">
+        <div class="crypto-icon">💰</div>
+        <div class="crypto-name">BUSD</div>
+        <div class="crypto-network">BEP20</div>
+      </div>
+      <div class="crypto-card" data-crypto="BNB">
+        <div class="crypto-icon">⚡</div>
+        <div class="crypto-name">BNB</div>
+        <div class="crypto-network">Native</div>
+      </div>
+    </div>
+    
+    <select id="crypto" style="display: none;">
+      <option value="USDT" selected>USDT (BEP20)</option>
+      <option value="BUSD">BUSD (BEP20)</option>
+      <option value="BNB">BNB</option>
+    </select>
+    
+    <button id="connect" class="btn btn-connect">
+      🔗 Connect Wallet
+    </button>
+    
+    <div class="wallet-status" id="walletStatus"></div>
+    
+    <div class="recipients-container">
+      <div class="label">
+        <span class="input-icon">👥</span>
+        <span>Recipient Addresses</span>
+      </div>
+      <div id="recipients">
+        <div class="recipient-item">
+          <div class="recipient-number">1</div>
+          <input class="recipient-input" placeholder="Enter 0x wallet address" />
+        </div>
+      </div>
+      <div id="addRecipient" class="add-recipient-btn">
+        <span>+</span>
+        <span>Add Another Recipient</span>
+      </div>
+      <p class="input-hint">Add multiple recipients for bulk transfers</p>
+    </div>
+    
+    <div class="form-group">
+      <div class="label">
+        <span class="input-icon">📝</span>
+        <span>Optional Note</span>
+      </div>
+      <textarea id="note" placeholder="Add a message or note for this transaction..."></textarea>
+    </div>
+    
+    <div class="form-group">
+      <div class="label">
+        <span class="input-icon">💸</span>
+        <span>Amount to Send</span>
+      </div>
+      <div class="amount-container">
+        <input id="amount" type="number" placeholder="Enter total amount" class="amount-input" step="0.01" />
+        <button class="max-btn" id="maxBtn">MAX</button>
+      </div>
+      <p class="input-hint">Amount will be split equally between recipients</p>
+    </div>
+    
+    <div class="form-group">
+      <div class="label">
+        <span class="input-icon">🌐</span>
+        <span>Display Currency</span>
+      </div>
+      <select id="currency">
+        <option value="USD" selected>USD ($) - US Dollar</option>
+        <option value="EUR">EUR (€) - Euro</option>
+        <option value="INR">INR (₹) - Indian Rupee</option>
+      </select>
+    </div>
+    
+    <div class="fee-breakdown" id="feeBreakdown">
+      <div class="fee-title">
+        <span>📊</span>
+        <span>Transfer Breakdown</span>
+      </div>
+      <div class="fee-row">
+        <div class="fee-label">
+          <span>Platform Fee:</span>
+        </div>
+        <div class="fee-value" id="feeAmount">0.99 USDT</div>
+      </div>
+      <div class="fee-row">
+        <div class="fee-label">
+          <span>Per Recipient:</span>
+        </div>
+        <div class="fee-value" id="perRecipient">-</div>
+      </div>
+      <div class="fee-row">
+        <div class="fee-label">
+          <span>Total Sent:</span>
+        </div>
+        <div class="fee-value" id="totalSent">0.00 USDT</div>
+      </div>
+    </div>
+    
+    <button id="send" class="btn btn-primary" disabled>
+      🚀 Send Transaction
+    </button>
+    
+    <div id="error" class="message error"></div>
+    <div id="success" class="message success"></div>
+    
+    <div class="qr-container" id="qrContainer">
+      <div class="qr-title">Transaction QR Code</div>
+      <div id="qrcode"></div>
+    </div>
+    
+    <div class="footer">
+      <p>Secure smart contract • Transparent fees • Global transfers • MetaMask & WalletConnect supported</p>
+    </div>
+  </div>
+</div>
+<script>
+// === ALL JAVASCRIPT LOGIC REMAINS EXACTLY THE SAME ===
+const CONTRACT_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+const ABI = [
+  "function sendToken(string,address[],uint256[])",
+  "function sendBNB(address[],uint256[])",
+];
+let provider, signer;
+let web3Modal = new Web3Modal.default({
+  cacheProvider: false,
+  providerOptions: {
+    walletconnect: {
+      package: WalletConnectProvider.default,
+      options: { rpc: { 56: "https://bsc-dataseed.binance.org/" } }
+    }
+  }
+});
+const connectBtn = document.getElementById("connect");
+const sendBtn = document.getElementById("send");
+const cryptoSelect = document.getElementById("crypto");
+const amountInput = document.getElementById("amount");
+const currencySelect = document.getElementById("currency");
+const errorBox = document.getElementById("error");
+const successBox = document.getElementById("success");
+const walletStatus = document.getElementById("walletStatus");
+const recipientsDiv = document.getElementById("recipients");
+const addRecipientBtn = document.getElementById("addRecipient");
+const noteInput = document.getElementById("note");
+const maxBtn = document.getElementById("maxBtn");
+const qrContainer = document.getElementById("qrContainer");
+const cryptoCards = document.querySelectorAll('.crypto-card');
+let RATES = { USD: 1, EUR: 0.91, INR: 279 };
+let recipients = [];
+// Sync crypto cards with select
+cryptoCards.forEach(card => {
+  card.addEventListener('click', function() {
+    cryptoCards.forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    cryptoSelect.value = this.dataset.crypto;
+    updateBreakdown();
+  });
+});
+// Update UI helper function
+function updateBreakdown() {
+  const val = parseFloat(amountInput.value || 0);
+  const cur = currencySelect.value;
+  const recipientInputs = recipientsDiv.querySelectorAll("input");
+  const recipientCount = recipientInputs.length;
+  const perReceiver = recipientCount > 0 ? val / recipientCount : val;
+  const converted = (perReceiver * RATES[cur]).toFixed(2);
+  
+  if (val > 0) {
+    document.getElementById('feeAmount').textContent = `0.99 ${cryptoSelect.value}`;
+    document.getElementById('perRecipient').textContent = `${perReceiver.toFixed(6)} ${cryptoSelect.value} (~${converted} ${cur})`;
+    document.getElementById('totalSent').textContent = `${val.toFixed(2)} ${cryptoSelect.value}`;
+  }
+}
+// Connect wallet
+connectBtn.onclick = async () => {
+  try {
+    const instance = await web3Modal.connect();
+    provider = new ethers.providers.Web3Provider(instance);
+    signer = provider.getSigner();
+    
+    // Update UI
+    connectBtn.textContent = "✅ Wallet Connected";
+    connectBtn.classList.remove('btn-connect');
+    connectBtn.classList.add('btn-primary');
+    sendBtn.disabled = false;
+    
+    // Show wallet status
+    walletStatus.textContent = instance.isMetaMask ? "Connected: MetaMask" : 
+                              instance.wc ? "Connected: WalletConnect" : "Wallet Connected";
+    walletStatus.style.display = 'block';
+    
+    // Show success message
+    successBox.textContent = "Wallet connected successfully! Ready to send crypto.";
+    successBox.style.display = 'block';
+    errorBox.style.display = 'none';
+    
+  } catch(e) {
+    errorBox.textContent = e.message || e;
+    errorBox.style.display = 'block';
+    successBox.style.display = 'none';
+  }
+};
+// Add recipient input dynamically
+addRecipientBtn.onclick = () => {
+  const recipientCount = recipientsDiv.querySelectorAll(".recipient-item").length + 1;
+  const recipientItem = document.createElement("div");
+  recipientItem.className = "recipient-item";
+  recipientItem.innerHTML = `
+    <div class="recipient-number">${recipientCount}</div>
+    <input class="recipient-input" placeholder="Enter 0x wallet address" />
+  `;
+  recipientsDiv.appendChild(recipientItem);
+  updateBreakdown();
+};
+// Fetch live rates
+async function fetchRates() {
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether,binance-usd,binancecoin&vs_currencies=usd,eur,inr");
+    const data = await res.json();
+    RATES = { USD: 1, EUR: data.tether.eur, INR: data.tether.inr };
+  } catch(e) { console.error(e); }
+}
+fetchRates();
+// Event listeners
+amountInput.oninput = updateBreakdown;
+currencySelect.onchange = updateBreakdown;
+cryptoSelect.onchange = updateBreakdown;
+noteInput.oninput = updateBreakdown;
+recipientsDiv.addEventListener("input", updateBreakdown);
+// Max button
+maxBtn.onclick = async () => {
+  if (!signer) {
+    errorBox.textContent = "Please connect wallet first";
+    errorBox.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const addr = await signer.getAddress();
+    const bal = await provider.getBalance(addr);
+    amountInput.value = parseFloat(ethers.utils.formatEther(bal) - 0.01).toFixed(6);
+    updateBreakdown();
+  } catch(e) {
+    errorBox.textContent = e.message || e;
+    errorBox.style.display = 'block';
+  }
+};
+// Send transaction
+sendBtn.onclick = async () => {
+  errorBox.textContent = "";
+  errorBox.style.display = "none";
+  successBox.textContent = "";
+  successBox.style.display = "none";
+  qrContainer.style.display = "none";
+  
+  try {
+    const token = cryptoSelect.value;
+    const inputs = recipientsDiv.querySelectorAll("input");
+    const recs = [...inputs].map(i => i.value).filter(v => v.length > 0);
+    
+    if (recs.length === 0) throw "Please enter at least one recipient address";
+    
+    const val = parseFloat(amountInput.value || 0);
+    if (val <= 0) throw "Amount must be greater than 0";
+    
+    // Update button to loading state
+    sendBtn.innerHTML = '<span class="loading"></span> Processing...';
+    sendBtn.disabled = true;
+    
+    const amounts = recs.map(_ => ethers.utils.parseUnits((val / recs.length).toString(), 6));
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    let tx;
+    if (token === "BNB") {
+      const total = val * 1e18;
+      tx = await contract.sendBNB(recs, amounts, { value: total });
+    } else {
+      tx = await contract.sendToken(token, recs, amounts);
+    }
+    
+    // Show pending state
+    successBox.textContent = "Transaction submitted! Waiting for confirmation...";
+    successBox.style.display = 'block';
+    
+    await tx.wait();
+    
+    // Show success with animation
+    successBox.innerHTML = `
+      ✅ Success! Transaction confirmed.<br><br>
+      <strong>TX Hash:</strong> ${tx.hash}<br>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('${tx.hash}')">Copy Hash</button>
+    `;
+    successBox.style.display = 'block';
+    sendBtn.classList.add('btn-success');
+    
+    // Generate QR code
+    QRCode.toCanvas(document.getElementById('qrcode'), tx.hash, {
+      width: 200,
+      height: 200,
+      margin: 2
+    }, function(error) {
+      if (!error) {
+        qrContainer.style.display = 'block';
+      }
+    });
+    
+    // Reset button
+    setTimeout(() => {
+      sendBtn.innerHTML = '🚀 Send Transaction';
+      sendBtn.disabled = false;
+      sendBtn.classList.remove('btn-success');
+    }, 3000);
+    
+  } catch(e) {
+    errorBox.textContent = e.message || e;
+    errorBox.style.display = 'block';
+    
+    // Reset button on error
+    sendBtn.innerHTML = '🚀 Send Transaction';
+    sendBtn.disabled = false;
+  }
+};
+// Initialize breakdown
+updateBreakdown();
+</script>
+</body>
+</html>
